@@ -15,17 +15,10 @@ from utils import SegmentationMetric, Tool, split_raw, get_parse, paste_evaluati
 warnings.filterwarnings('ignore')
 args = get_parse()
 
-model = liteseg.LiteSeg(num_class=1,
-                        backbone_network='mobilenet',
-                        pretrain_weight=None,
-                        is_train=False)
-
-# model.load_state_dict(torch.load(args.weight))
-
-# checkpoint_path = args.checkpoint_path + args.go_on_param
-checkpoints = torch.load(args.weight)
-model.load_state_dict(checkpoints['model_state_dict'])
-torch.save(model.state_dict(), './params/ep120_mobile_liteseg.pth')
+# model = liteseg.LiteSeg(num_class=1,
+#                         backbone_network='mobilenet',
+#                         pretrain_weight=None,
+#                         is_train=False)
 
 transform = transforms.Compose([
     transforms.ToTensor(),
@@ -33,7 +26,7 @@ transform = transforms.Compose([
 ])
 
 
-def five_channel_test():
+def five_channel_test(model):
     if os.path.exists(args.img_save_path):
         shutil.rmtree(args.img_save_path)
     if os.path.exists(args.mask_save_path):
@@ -119,19 +112,19 @@ def five_channel_test():
         mIoU = metric.meanIntersectionOverUnion()
         dice = mc.binary.dc(imgPredict, imgLabel)
 
-        print('\n\n', '**==**==' * 50)
-        print(f'第{i}张测试图片')
-        print('m_dice:', dice)
-        print('像素准确率 PA is : %f' % pa)
-        print('类别像素准确率 CPA is :', cpa)
-        print('类别平均像素准确率 MPA is : %f' % mpa)
-        print('mIoU is : %f' % mIoU, end='\n\n')
+        # print('\n\n', '**==**==' * 50)
+        # print(f'第{i}张测试图片')
+        # print('m_dice:', dice)
+        # print('像素准确率 PA is : %f' % pa)
+        # print('类别像素准确率 CPA is :', cpa)
+        # print('类别平均像素准确率 MPA is : %f' % mpa)
+        # print('mIoU is : %f' % mIoU, end='\n\n')
 
         save_path = os.path.join(args.img_save_path, 'test_img_' + raw_file)
         paste_evaluation(save_img, mIoU, save_path)
         # cv2.imwrite(os.path.join(args.img_save_path, 'test_img_' + raw_file), save_img)
         cv2.imwrite(os.path.join(args.mask_save_path, 'test_mask_' + raw_file.split('.')[0] + '.png'), mask_img_to_save)
-        print(raw_file + '  save res ok')
+        # print(raw_file + '  save res ok')
 
         m_pa += pa
         m_cpa += cpa
@@ -140,26 +133,49 @@ def five_channel_test():
         m_dice += dice
         i += 1
 
-    print('\n\n', '**==**==' * 50)
-    print('m_dice:', m_dice / num)
-    print('all 像素准确率 AVG_PA is : %f' % (m_pa / num))
-    print('all 类别像素准确率 AVG_CPA is :', m_cpa / num)
-    print('all 类别平均像素准确率 AVG_MPA is : %f' % (m_mpa / num))
-    print('AVG_mIoU is : %f' % (m_mIoU / num), end='\n\n')
+    # print('\n\n', '**==**==' * 50)
+    # print('m_dice:', m_dice / num)
+    # print('all 像素准确率 AVG_PA is : %f' % (m_pa / num))
+    # print('all 类别像素准确率 AVG_CPA is :', m_cpa / num)
+    # print('all 类别平均像素准确率 AVG_MPA is : %f' % (m_mpa / num))
+    # print('AVG_mIoU is : %f' % (m_mIoU / num), end='\n\n')
+
+    return m_mIoU / num
 
 
-def mv_test_mask_label():
-    if os.path.exists(args.test_label):
-        shutil.rmtree(args.test_label)
-    os.mkdir(args.test_label)
+def get_best_ep():
+    checkpoint_path = args.checkpoint_path
+    all_test_res = []
+    for param in os.listdir(checkpoint_path):
+        param_path = checkpoint_path + param
+        checkpoints = torch.load(param_path)
+        print('load ', param_path)
+        model = liteseg.LiteSeg(num_class=1,
+                                backbone_network='mobilenet',
+                                pretrain_weight=None,
+                                is_train=False)
+        model.load_state_dict(checkpoints['model_state_dict'])
+        cur_avg_miou = five_channel_test(model)
 
-    t = Tool()
-    src1 = args.test_data
-    src2 = r'D:\py_program\testAll\data_handle_all\segment_handle_data\data\mask/'
-    dist = args.test_label
-    t.copy_file_to_dir(src1, src2, dist)
+        print(f'{param} avg mIOU: {cur_avg_miou}')
+        all_test_res.append([param, cur_avg_miou])
+    all_test_res.sort(key=lambda x: x[1], reverse=True)
+    print(all_test_res)
 
 
 if __name__ == '__main__':
-    # mv_test_mask_label()
-    five_channel_test()
+    get_best_ep()
+
+'''res
+['liteseg_zdm_ep400_BCE_640x640_selfResize_best_ep120.pth', 0.6237571775497627]
+['liteseg_zdm_ep400_BCE_640x640_selfResize_best_ep280.pth', 0.6220129565653076]
+['liteseg_zdm_ep400_BCE_640x640_selfResize_best_ep260.pth', 0.6212794478659927]
+['liteseg_zdm_ep400_BCE_640x640_selfResize_best_ep200.pth', 0.6168901561809532]
+['liteseg_zdm_ep400_BCE_640x640_selfResize_best_ep300.pth', 0.6145839979073191]
+['liteseg_zdm_ep400_BCE_640x640_selfResize_best_ep160.pth', 0.6140060737718238]
+['liteseg_zdm_ep400_BCE_640x640_selfResize_best_ep180.pth', 0.6029063451686865]
+['liteseg_zdm_ep400_BCE_640x640_selfResize_best_ep140.pth', 0.6011251339522588]
+['liteseg_zdm_ep400_BCE_640x640_selfResize_best_ep100.pth', 0.5997486310162502]
+['liteseg_zdm_ep400_BCE_640x640_selfResize_best_ep220.pth', 0.5988662106318707]
+['liteseg_zdm_ep400_BCE_640x640_selfResize_best_ep240.pth', 0.598625672927424]
+'''

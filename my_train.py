@@ -74,7 +74,6 @@ def train():
         epoch_loss = 0
         step = 0
         for data, label in train_dataloader:
-            optimizer.zero_grad()
             data, label = data.to(device), label.to(device)
             # with autocast():
             output = model(data)
@@ -83,7 +82,7 @@ def train():
             # scaler.scale(loss).backward()  # 将张量乘以比例因子，反向传播
             # scaler.step(optimizer)  # 将优化器的梯度张量除以比例因子。
             # scaler.update()  # 更新比例因子
-
+            optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             epoch_loss += loss.item()

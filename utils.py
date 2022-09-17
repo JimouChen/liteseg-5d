@@ -1,15 +1,13 @@
 import argparse
 import json
-import time
-
-import matplotlib.pyplot as plt
-import numpy as np
 import os
 import shutil
 from datetime import datetime
-import torch
+
 import cv2
-from skimage import io
+import matplotlib.pyplot as plt
+import numpy as np
+import torch
 
 """
 confusionMetric  #注意： 此处横着代表预测值，竖着代表真实值
@@ -419,7 +417,8 @@ def get_parse():
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=400, help='model training epochs')
     parser.add_argument('--weight', type=str,
-                        default='./params/liteseg_zdm_ep400_BCE_640x640_selfResize_best.pth',
+                        # default='./params/liteseg_zdm_ep230_BCE_640x640_selfResize_best.pth',
+                        default='./checkpoint/liteseg_zdm_ep400_BCE_640x640_selfResize_best_ep120.pth',
                         help='weights path')
     parser.add_argument('--weight-last', type=str,
                         default='./params/liteseg_zdm_ep400_BCE_640x640_selfResize_last.pth',
@@ -436,7 +435,8 @@ def get_parse():
     parser.add_argument('--checkpoint_path', type=str, default='./checkpoint/',
                         help='checkpoint params save path')
     parser.add_argument('--go_on_epoch', type=int, default=100, help='checkpoint params epoch')
-    parser.add_argument('--go_on_param', type=str, default='_ep100.pth',
+    parser.add_argument('--go_on_param', type=str,
+                        default='liteseg_zdm_ep400_BCE_640x640_selfResize_best_ep300.pth',
                         help='checkpoint go on params')
 
     parser.add_argument('--img-size', nargs='+', type=int, default=(640, 640), help='image size')
@@ -451,6 +451,12 @@ def get_parse():
     opt = parser.parse_args()
     # print(opt)
     return opt
+
+
+def test_cat():
+    a = [['w', 2], ['r', 1], ['p', 5], ['k', 4]]
+    a.sort(key=lambda x: x[1], reverse=True)
+    print(a)
 
 
 if __name__ == '__main__':

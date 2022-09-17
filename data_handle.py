@@ -39,17 +39,21 @@ class MyData(Dataset):
 if __name__ == '__main__':
     from LiteSeg import liteseg
     from utils import get_parse
+    import warnings
+
+    warnings.filterwarnings('ignore')
 
     args = get_parse()
     model = liteseg.LiteSeg(num_class=1, backbone_network='mobilenet',
                             pretrain_weight=None, is_train=False)
     train_dataset = MyData(args.train_label, args.train_data, img_size=(640, 640))
     train_loader = DataLoader(train_dataset,
-                              batch_size=2,
+                              batch_size=4,
                               shuffle=True,
-                              num_workers=2)
+                              num_workers=4)
     for data, label in train_loader:
         print(data.shape, label.shape)
+        print(type(data))
         out = model(data)
         print(out.shape)
         break
