@@ -3,18 +3,12 @@ import json
 import os
 import shutil
 from datetime import datetime
-
+from skimage import io
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-
-"""
-confusionMetric  #注意： 此处横着代表预测值，竖着代表真实值
-P\L     P    N
-P      TP    FP
-N      FN    TN
-"""
+from PIL import ImageFont, ImageDraw, Image
 
 
 class SegmentationMetric(object):
@@ -254,19 +248,19 @@ def handle_dataset_resize(img_path, mask_path, save_img_dir, save_mask_dir):
 
     for tiff in os.listdir(img_path):
         p = img_path + tiff
-        # img = io.imread(p)
-        # img = np.transpose(img[:5, :, :], (1, 2, 0))
+        img = io.imread(p)
+        img = np.transpose(img[:5, :, :], (1, 2, 0))
         # img = np.transpose(img, (1, 2, 0))
-        img = cv2.imread(p, 0)
+        # img = cv2.imread(p, 0)
         x, y = split_raw(img)
 
         for i, sub_img in enumerate(x):
-            # sub_img = np.transpose(sub_img, (2, 0, 1))
+            sub_img = np.transpose(sub_img, (2, 0, 1))
             # print(sub_img.shape)
-            # save_sub_img_path = save_img_dir + tiff.split('.')[0] + '_' + str(i) + '.tiff'
-            save_sub_img_path = save_img_dir + tiff.split('.')[0] + '_' + str(i) + '.bmp'
-            # io.imsave(save_sub_img_path, sub_img)
-            cv2.imwrite(save_sub_img_path, sub_img)
+            save_sub_img_path = save_img_dir + tiff.split('.')[0] + '_' + str(i) + '.tiff'
+            # save_sub_img_path = save_img_dir + tiff.split('.')[0] + '_' + str(i) + '.bmp'
+            io.imsave(save_sub_img_path, sub_img)
+            # cv2.imwrite(save_sub_img_path, sub_img)
             print(f'[{datetime.now()}] ====> {save_sub_img_path} \t save ok')
 
     for each_mask in os.listdir(mask_path):
@@ -280,25 +274,22 @@ def handle_dataset_resize(img_path, mask_path, save_img_dir, save_mask_dir):
             print(f'[{datetime.now()}]====> {save_sub_mask_path}\t save ok')
 
 
-def split_img_and_mask():
-    raw_img_path = './dataset_dm_zm/'
-    raw_mask_path = r'D:\py_program\testAll\data_handle_all\segment_handle_data\data\mask_mut/'
-    new_img_path = './data/img/'
-    new_mask_path = './data/mask/'
+def test_split_img_and_mask():
+    raw_img_path = r'D:\py_program\testAll\segement\src\dataset_dm_zm/'
+    raw_mask_path = r'D:\files\data\all_mask_data/'
+    new_img_path = r'D:\py_program\testAll\segement\src\data\img/'
+    new_mask_path = r'D:\py_program\testAll\segement\src\data\mask/'
     handle_dataset_resize(raw_img_path, raw_mask_path, new_img_path, new_mask_path)
     print('split finished')
 
 
+# 这个已经在测试代码实现，可以不执行
 def resize_test_img_and_mask(
         test_img_path='./test_img/',
         true_label_path='./test_label/',
         after_resize_test_img_path='./test_resize_img/',
         after_resize_test_mask_path='./test_resize_mask/'
 ):
-    # test_img_path = './test_img/',
-    # true_label_path = './test_label/',
-    # after_resize_test_img_path = './test_resize_img/',
-    # after_resize_test_mask_path = './test_resize_mask/'
     if os.path.exists(after_resize_test_img_path):
         shutil.rmtree(after_resize_test_img_path)
     if os.path.exists(after_resize_test_mask_path):
@@ -309,23 +300,34 @@ def resize_test_img_and_mask(
     print('resize test dataset ok')
 
 
-def split_train_and_test():
+def test_split_train_and_test(radio=0.2,
+                              train_path=r'D:\py_program\testAll\segement\src\dataset_dm_zm/',
+                              train_labels=r'D:\files\data\all_mask_data/',
+                              test_path=r'D:\files\data\test_data/',
+                              test_labels=r'D:\files\data\test_mask/'
+                              ):
+    """
+    从总数据集中切分radio比例到测试集中
+    :param radio: 测试集的占比
+    """
     import os
     import shutil
     import random
 
-    train_path = r'D:\files\data/train_data/'
-    train_labels = r'D:\files\data/train_mask/'
-    test_path = r'D:\files\data/test_data/'
-    test_labels = r'D:\files\data/test_mask/'
+    if os.path.exists(test_path):
+        shutil.rmtree(test_path)
+    if os.path.exists(test_labels):
+        shutil.rmtree(test_labels)
+    os.makedirs(test_path)
+    os.makedirs(test_labels)
 
-    names = os.listdir(train_path)
-    num = int(len(names) * 0.5)
-    new_names = random.sample(names, num)
-    # print(new_names)
-    for name in new_names:
+    all_dataset = os.listdir(train_path)
+    train_data_num = int(len(all_dataset) * radio)
+    train_dataset = random.sample(all_dataset, train_data_num)
+    for name in train_dataset:
         shutil.move(os.path.join(train_path, name), os.path.join(test_path, name))
-        shutil.move(os.path.join(train_labels, name[:-5] + '.tiff'), os.path.join(test_labels, name[:-5] + '.tiff'))
+        shutil.move(os.path.join(train_labels, name[:-5] + '.png'), os.path.join(test_labels, name[:-5] + '.png'))
+    print('split finished')
 
 
 def clear_test_res():
@@ -363,6 +365,31 @@ def handle_CAN_train_data(train_path_resized):
         train_set.add(raw_file)
     print(f'train有 {len(train_set)} 张')
     return train_set
+
+
+def evaluation_model(pred_img, raw_sub_img, args):
+    pred_img = np.where(pred_img > args.threshold, 1, 0)
+    # print(pred_img.shape, raw_sub_img.shape)
+    # raw_sub_img = np.where(raw_sub_img > args.threshold, 1, 0)
+    # 模型评估
+    metric = SegmentationMetric(args.class_number)
+    imgPredict = np.array(pred_img.reshape(-1), np.uint8)
+    # imgLabel = cv2.resize(raw_sub_img, args.img_size)
+    imgLabel = np.array((raw_sub_img / 255).reshape(-1), np.int8)
+    # print(imgLabel.shape, imgPredict.shape)
+    metric.addBatch(imgPredict, imgLabel)
+    # pa = metric.pixelAccuracy()
+    # cpa = metric.classPixelAccuracy()
+    # mpa = metric.meanPixelAccuracy()
+    mIoU = metric.meanIntersectionOverUnion()
+    # dice = mc.binary.dc(imgPredict, imgLabel)
+
+    # print('m_dice:', dice)
+    # print('像素准确率 PA is : %f' % pa)
+    # print('类别像素准确率 CPA is :', cpa)
+    # print('类别平均像素准确率 MPA is : %f' % mpa)
+    print('sub out mIoU is : %.6f' % mIoU, end='\n\n')
+    return mIoU
 
 
 def paste_evaluation(img, m_iou, save_path):
@@ -405,6 +432,192 @@ def test_show_diff_pred_raw():
         # time.sleep(2)
 
 
+def get_label_box(json_data_path):
+    with open(json_data_path, 'r', encoding='utf-8') as f:
+        d = json.load(f)
+        shapes = d['shapes']
+        all_points_and_label, all_points = [], []
+
+        for each_block in shapes:
+            label = each_block['label']
+            points = each_block['points']
+            all_points.append(points)
+            x_point, y_point = [], []
+            for point in points:
+                x_point.append(point[0])
+                y_point.append(point[1])
+            min_x, min_y, max_x, max_y = min(x_point), min(y_point), max(x_point), max(y_point)
+            all_points_and_label.append((label, (min_x, min_y, max_x, max_y)))
+        return all_points_and_label, all_points
+
+
+def get_one_point_box(points: list):
+    x_point, y_point = [], []
+    for point in points:
+        x_point.append(point[0])
+        y_point.append(point[1])
+    return min(x_point), min(y_point), max(x_point), max(y_point)
+
+
+def show_chinese(img, text, pos):
+    """
+    :param img: opencv 图片
+    :param text: 显示的中文字体
+    :param pos: 显示位置
+    :return:    带有字体的显示图片（包含中文）
+    """
+    img_pil = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+    font = ImageFont.truetype(font=r'D:\files\font/PingFang-Bold-2', size=50)
+    draw = ImageDraw.Draw(img_pil)
+    draw.text(pos, text, font=font, fill=(255, 255, 255))
+    img_cv = np.array(img_pil)  # PIL图片转换为numpy
+    img = cv2.cvtColor(img_cv, cv2.COLOR_RGB2BGR)  # PIL格式转换为OpenCV的BGR格式
+    return img
+
+
+def judge_Contour_intersection(contour1, contour2, img_size=(2001, 2551, 1)):
+    """
+    这种求出的是轮廓的交点，没有实心交点，所以如果是pred的轮廓包含true的轮廓，
+    那么这种情况就是两个轮廓没有交点，出现误判漏检，所以要加个轮廓包围轮廓的判断；
+    :param contour1:img1的所有轮廓
+    :param contour2:img2的所有轮廓
+    :param img_size:图片尺寸，必须是3通道才可以绘制
+    :return:所有交点
+    """
+    blank = np.zeros(img_size)
+    image1 = cv2.drawContours(blank.copy(), contour1, -1, (255, 255, 255), 5)
+    image2 = cv2.drawContours(blank.copy(), contour2, -1, (255, 255, 255), 5)
+    intersection = np.logical_and(image1, image2)
+
+    # plt.figure(figsize=(12, 6))
+    # plt.subplot(1,2,1)
+    # img = plt.imshow(intersection)
+    # img.set_cmap('gray')
+    #
+    # plt.subplot(1,2,2)
+    # img = plt.imshow(image2)
+    # img.set_cmap('gray')
+    #
+    # plt.show()
+    # exit(0)
+    a = np.reshape(intersection, img_size[:2])
+    w, h = a.shape[1], a.shape[0]
+    intersection_points = []
+    for i in range(h):
+        for j in range(w):
+            if a[i][j]:
+                intersection_points.append((j, i))
+
+    return intersection_points
+
+
+# def check_overkill(pred_boxes, intersection_points):
+#     overkill_boxes = set()
+#     for box in pred_boxes:
+#         for x, y in intersection_points:
+#             is_in = (box[0] <= x <= box[1]) and (box[1] <= y <= box[3])
+#             if is_in is False:
+#                 overkill_boxes.add(box)
+#     return overkill_boxes
+
+
+# 检查漏检，实际上过杀反过来做即可
+def draw_mistake(pred_mask_root=r'D:\files\data\save_mask/',
+                 pred_img_root=r'D:\files\data\save_img/',
+                 test_data_path=r'D:\files\data\test_data/',
+                 test_mask_path=r'D:\files\data\test_mask/',
+                 json_data_root=r'D:\work\new_data\new_zdm_json\data_zdm_last/'):
+    for file in os.listdir(test_data_path):
+        # if 'V191152019F0PH41J_DM_0_20210604_134223' in file:
+        pred_mask_path = os.path.join(pred_mask_root, 'test_mask_' + file.split('.')[0] + '.png')
+        true_mask_path = os.path.join(test_mask_path, file.split('.')[0] + '.png')
+        img_path = os.path.join(test_data_path, file)
+        json_path = os.path.join(json_data_root, file.split('.')[0] + '.json')
+        pred_img_path = os.path.join(pred_img_root, 'test_img_' + file)
+
+        pred_mask = cv2.imread(pred_mask_path, 0)
+        true_mask = cv2.imread(true_mask_path, 0)
+        # raw_img_size = pred_mask.shape
+        true_mask_boxes, true_mask_points = get_label_box(json_path)
+        contours, _ = cv2.findContours(pred_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+        contours_true, _ = cv2.findContours(true_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+        intersection_res = judge_Contour_intersection(contours, contours_true)
+
+        pred_mask_points = []
+        for p in contours:
+            points = p.reshape(-1, 2).tolist()
+            pred_mask_points.append(points)
+        # 找到pred_mask_boxes
+        pred_mask_boxes = []
+        for pm in pred_mask_points:
+            pred_mask_boxes.append(get_one_point_box(pm))
+
+        # print(true_mask_boxes)
+        # print(pred_mask_boxes)
+        # print(true_mask_points)
+        # print(pred_mask_points)
+        has_check_boxes = set()
+        for true_box in true_mask_boxes:
+            for idx, (x, y) in enumerate(intersection_res):
+                is_in = (true_box[1][0] <= x <= true_box[1][2]) and (true_box[1][1] <= y <= true_box[1][3])
+                if is_in:
+                    has_check_boxes.add(true_box)
+                    break
+        mistake_box = set(true_mask_boxes) - has_check_boxes
+        # 找到轮廓内的误判,再从漏检中去掉
+        in_circle = set()
+        for box in pred_mask_boxes:
+            for each_circle in true_mask_points:
+                for idx, (x, y) in enumerate(each_circle):
+                    temp = (box[0] <= x <= box[2]) and (box[1] <= y <= box[3])
+                    if temp and (idx != len(each_circle) - 1):
+                        continue
+                    elif temp and (idx == len(each_circle) - 1):
+                        in_circle.add(get_one_point_box(each_circle))
+                    else:
+                        break
+        final_mistake = set()
+        for mb in mistake_box:
+            if mb[1] in in_circle:
+                continue
+            else:
+                final_mistake.add(mb)
+        mistake_box = final_mistake
+        # print(mistake_box)
+        has_check_boxes = set(true_mask_boxes) - mistake_box
+        print(file + ': 检测出的个数: ', len(has_check_boxes))
+        print(file + ': 漏检个数： ', len(mistake_box))
+        # overkill_boxes = check_overkill(pred_mask_boxes, intersection_res)
+        # print(file + ': 过杀个数：', len(overkill_boxes))
+
+        # draw mistake boxes and has checked boxes in true img
+        true_img = cv2.imread(img_path)
+        for box in mistake_box:
+            label, point = box[0], box[1]
+            cv2.rectangle(true_img, (int(point[0]), int(point[1])), (int(point[2]), int(point[3])), (255, 0, 0), 8)
+            left_down_location = (int(point[0]), int(point[3]))
+            true_img = show_chinese(true_img, label, left_down_location)
+        for box in has_check_boxes:
+            label, point = box[0], box[1]
+            cv2.rectangle(true_img, (int(point[0]), int(point[1])), (int(point[2]), int(point[3])), (0, 255, 0), 8)
+            left_down_location = (int(point[0]), int(point[3]))
+            true_img = show_chinese(true_img, label, left_down_location)
+        # for point in overkill_boxes:
+        #     cv2.rectangle(true_img, (point[0], point[1]), (point[2], point[3]), (0, 0, 255), 8)
+
+        plt.figure(figsize=(14, 7), dpi=160)
+        plt.subplot(1, 2, 1)
+        plt.title('pred img')
+        pred_img = cv2.imread(pred_img_path)
+        plt.imshow(pred_img)
+
+        plt.subplot(1, 2, 2)
+        # plt.title(true_img + str(miou))
+        plt.title('true img')
+        plt.imshow(true_img)
+        plt.show()
+
+
 def get_parse():
     train_data = r'D:\py_program\testAll\segement\src\data\img/'
     train_label = r'D:\py_program\testAll\segement\src\data\mask/'
@@ -417,11 +630,11 @@ def get_parse():
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', type=int, default=400, help='model training epochs')
     parser.add_argument('--weight', type=str,
-                        # default='./params/liteseg_zdm_ep230_BCE_640x640_selfResize_best.pth',
-                        default='./checkpoint/liteseg_zdm_ep400_BCE_640x640_selfResize_best_ep120.pth',
+                        default='./params/liteseg_shuffleNet_zdm_ep400_BCE_640x640_selfResize_best.pth',
+                        # default='./checkpoint/liteseg_zdm_ep400_BCE_640x640_selfResize_best_ep120.pth',
                         help='weights path')
     parser.add_argument('--weight-last', type=str,
-                        default='./params/liteseg_zdm_ep400_BCE_640x640_selfResize_last.pth',
+                        default='./params/liteseg_shuffleNet_zdm_ep400_BCE_640x640_selfResize_last.pth',
                         help='last epoch weights path')
     parser.add_argument('--train-data', type=str, default=train_data, help='train data path')
     parser.add_argument('--train-label', type=str, default=train_label, help='train label path')
@@ -432,7 +645,8 @@ def get_parse():
 
     parser.add_argument('--train_loss_curve_save_path', type=str, default='./train_loss_pic/',
                         help='train loss curve save path')
-    parser.add_argument('--checkpoint_path', type=str, default='./checkpoint/',
+    parser.add_argument('--checkpoint_path', type=str,
+                        default='./checkpoint/liteseg_shuffleNet_zdm_ep400_BCE_640x640_selfResize_best/',
                         help='checkpoint params save path')
     parser.add_argument('--go_on_epoch', type=int, default=100, help='checkpoint params epoch')
     parser.add_argument('--go_on_param', type=str,
@@ -447,18 +661,12 @@ def get_parse():
     parser.add_argument('--threshold', type=float, default=0.5, help='object confidence threshold')
     parser.add_argument('--workers', type=int, default=4, help='maximum number of dataloader workers')
     parser.add_argument('--class_number', type=int, default=2, help='segement label class number')
+    parser.add_argument('--backbone', type=str, default='shufflenet', help='net backbone[mobile net/shuffle net]')
 
     opt = parser.parse_args()
     # print(opt)
     return opt
 
 
-def test_cat():
-    a = [['w', 2], ['r', 1], ['p', 5], ['k', 4]]
-    a.sort(key=lambda x: x[1], reverse=True)
-    print(a)
-
-
 if __name__ == '__main__':
-    args = get_parse()
-    print(args.weight.split('/')[-1].split('.')[0])
+    draw_mistake()

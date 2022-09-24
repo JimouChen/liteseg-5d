@@ -8,24 +8,28 @@ import cv2
 from PIL import Image
 from skimage import io
 from medpy import metric as mc
+import gc
 
 from LiteSeg import liteseg
 from utils import SegmentationMetric, Tool, split_raw, get_parse, paste_evaluation
 
 warnings.filterwarnings('ignore')
+gc.collect()
+torch.cuda.empty_cache()
 args = get_parse()
 
 model = liteseg.LiteSeg(num_class=1,
-                        backbone_network='mobilenet',
+                        backbone_network='shufflenet',
+                        # backbone_network='mobilenet',
                         pretrain_weight=None,
                         is_train=False)
 
-# model.load_state_dict(torch.load(args.weight))
+model.load_state_dict(torch.load(args.weight))
 
 # checkpoint_path = args.checkpoint_path + args.go_on_param
-checkpoints = torch.load(args.weight)
-model.load_state_dict(checkpoints['model_state_dict'])
-torch.save(model.state_dict(), './params/ep120_mobile_liteseg.pth')
+# checkpoints = torch.load(args.weight)
+# model.load_state_dict(checkpoints['model_state_dict'])
+# torch.save(model.state_dict(), './params/ep120_mobile_liteseg.pth')
 
 transform = transforms.Compose([
     transforms.ToTensor(),
@@ -34,6 +38,7 @@ transform = transforms.Compose([
 
 
 def five_channel_test():
+    model.eval()
     if os.path.exists(args.img_save_path):
         shutil.rmtree(args.img_save_path)
     if os.path.exists(args.mask_save_path):
@@ -76,11 +81,14 @@ def five_channel_test():
                     # 贴回去pred_img
                     sub = torch.reshape(each, args.img_size)
                     sub = sub.detach().numpy()
+                    # sub = torch.reshape(each.cpu(), args.img_size)
+                    # sub = sub.cpu().detach().numpy()
                     x1, y1, x2, y2 = pos_x_y[idx_]
                     pred_img[y1:y2, x1:x2] = sub
-                # print(pred_img)
+                    # 要注意并集的两者的shape和dtype都要一样
+                    # pred_img[y1:y2, x1:x2] = cv2.bitwise_or(pred_img[y1:y2, x1:x2], sub)
+
                 pos_x_y = []
-                # return
                 # out = torch.reshape(out.cpu(), args.img_size)
                 # print(out.shape)
                 # out = out.cpu().detach().numpy()
@@ -102,9 +110,6 @@ def five_channel_test():
         save_img = np.array(save_img)
         # print(save_img)
 
-        # cv2.imwrite(os.path.join(args.img_save_path, 'test_img_' + raw_file), save_img)
-        # cv2.imwrite(os.path.join(args.mask_save_path, 'test_mask_' + raw_file.split('.')[0] + '.png'), mask_img_to_save)
-        # print(raw_file + '  save res ok')
         # 模型评估
         metric = SegmentationMetric(args.class_number)
         imgPredict = np.array(pred_img.reshape(-1), np.uint8)
@@ -148,18 +153,5 @@ def five_channel_test():
     print('AVG_mIoU is : %f' % (m_mIoU / num), end='\n\n')
 
 
-def mv_test_mask_label():
-    if os.path.exists(args.test_label):
-        shutil.rmtree(args.test_label)
-    os.mkdir(args.test_label)
-
-    t = Tool()
-    src1 = args.test_data
-    src2 = r'D:\py_program\testAll\data_handle_all\segment_handle_data\data\mask/'
-    dist = args.test_label
-    t.copy_file_to_dir(src1, src2, dist)
-
-
 if __name__ == '__main__':
-    # mv_test_mask_label()
     five_channel_test()

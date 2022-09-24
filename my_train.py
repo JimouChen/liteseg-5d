@@ -11,12 +11,11 @@ import os
 import gc
 import warnings
 
-warnings.filterwarnings('ignore')
-
 from data_handle import MyData
 from LiteSeg import liteseg
 from utils import get_parse
 
+warnings.filterwarnings('ignore')
 gc.collect()
 torch.cuda.empty_cache()
 args = get_parse()
@@ -30,7 +29,8 @@ train_dataset = MyData(args.train_label, args.train_data, img_size=(640, 640))
 train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.workers)
 # scaler = GradScaler()
 model = liteseg.LiteSeg(num_class=1,
-                        backbone_network='mobilenet',
+                        backbone_network='shufflenet',
+                        # backbone_network='mobilenet',
                         pretrain_weight=None,
                         is_train=False).to(device)
 # model = UNet.Unet(5, 1)
@@ -93,7 +93,7 @@ def train():
             if best_loss > loss.item():
                 torch.save(model.state_dict(), args.weight)
                 best_loss = loss.item()
-                print('cur best loss: ', best_loss, '\tsave ok')
+                print('epoch: ', i, '==> cur best loss: ', best_loss, '\tsave ok')
 
         # 每20次epoch存一次断点
         if i % 20 == 0:
@@ -102,7 +102,8 @@ def train():
                 'model_state_dict': model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict()
             }
-            torch.save(checkpoint, args.checkpoint_path + cur_model_name + '_ep' + str(i) + '.pth')
+            torch.save(checkpoint,
+                       os.path.join(args.checkpoint_path + cur_model_name, 'shuffleNet_LiteSeg_ep' + str(i) + '.pth'))
             print('ep_', i, '_pth : =================== checkpoint save ok')
 
         avg_loss = epoch_loss / len(train_dataloader)

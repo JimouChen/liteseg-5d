@@ -8,17 +8,13 @@ import cv2
 from PIL import Image
 from skimage import io
 from medpy import metric as mc
+import gc
 
 from LiteSeg import liteseg
-from utils import SegmentationMetric, Tool, split_raw, get_parse, paste_evaluation
+from utils import *
 
 warnings.filterwarnings('ignore')
 args = get_parse()
-
-# model = liteseg.LiteSeg(num_class=1,
-#                         backbone_network='mobilenet',
-#                         pretrain_weight=None,
-#                         is_train=False)
 
 transform = transforms.Compose([
     transforms.ToTensor(),
@@ -27,6 +23,9 @@ transform = transforms.Compose([
 
 
 def five_channel_test(model):
+    gc.collect()
+    torch.cuda.empty_cache()
+    model.eval()
     if os.path.exists(args.img_save_path):
         shutil.rmtree(args.img_save_path)
     if os.path.exists(args.mask_save_path):
@@ -35,15 +34,18 @@ def five_channel_test(model):
     os.mkdir(args.img_save_path)
     os.mkdir(args.mask_save_path)
 
-    m_dice = 0
-    m_pa = 0
-    m_cpa = 0
-    m_mpa = 0
+    # m_dice = 0
+    # m_pa = 0
+    # m_cpa = 0
+    # m_mpa = 0
     m_mIoU = 0
     i = 1
     num = len(os.listdir(args.test_data))
     for raw_file in os.listdir(args.test_data):
+        cur_all_sub_out_iou = []
         p = args.test_data + raw_file
+        p_mask = args.test_label + raw_file.split('.')[0] + '.png'
+        raw_mask = cv2.imread(p_mask, 0)
         img = io.imread(p)
         img = np.transpose(img, (1, 2, 0))
         all_sub_img, start_location = split_raw(img, overlap_size=64)
@@ -51,7 +53,7 @@ def five_channel_test(model):
         temp_cat_list = []
         pos_x_y = []
         for idx, box in enumerate(start_location):
-            # x1, y1, x2, y2 = box
+            # x11, y11, x22, y22 = box
             pos_x_y.append(box)
             img = np.array(all_sub_img[idx] / 255., np.float32)
             # img = np.array(all_sub_img[idx])
@@ -63,7 +65,6 @@ def five_channel_test(model):
                 cur_test_img = torch.cat(temp_cat_list, 0)
                 temp_cat_list = []
                 # cur_test_img = cur_test_img.cuda()
-                # print(cur_test_img.shape)
                 out = model(cur_test_img)
                 for idx_, each in enumerate(out):
                     # 贴回去pred_img
@@ -71,13 +72,11 @@ def five_channel_test(model):
                     sub = sub.detach().numpy()
                     x1, y1, x2, y2 = pos_x_y[idx_]
                     pred_img[y1:y2, x1:x2] = sub
-                # print(pred_img)
+                    sub_out_miou = evaluation_model(sub, raw_mask[y1:y2, x1:x2], args)
+                    cur_all_sub_out_iou.append(sub_out_miou)
                 pos_x_y = []
-                # return
                 # out = torch.reshape(out.cpu(), args.img_size)
-                # print(out.shape)
                 # out = out.cpu().detach().numpy()
-                # return
                 # pred_img[y1:y2, x1:x2] = out
         pred_img = np.where(pred_img > args.threshold, 1, 0)
         # 把图片贴合回去展示
@@ -99,18 +98,18 @@ def five_channel_test(model):
         # cv2.imwrite(os.path.join(args.mask_save_path, 'test_mask_' + raw_file.split('.')[0] + '.png'), mask_img_to_save)
         # print(raw_file + '  save res ok')
         # 模型评估
-        metric = SegmentationMetric(args.class_number)
-        imgPredict = np.array(pred_img.reshape(-1), np.uint8)
-        imgLabel = cv2.imread(args.test_label + raw_file.split('.')[0] + '.png', 0)
+        # metric = SegmentationMetric(args.class_number)
+        # imgPredict = np.array(pred_img.reshape(-1), np.uint8)
+        # imgLabel = cv2.imread(args.test_label + raw_file.split('.')[0] + '.png', 0)
         # imgLabel = cv2.resize(imgLabel, args.img_size)
-        imgLabel = np.array((imgLabel / 255).reshape(-1), np.int8)
+        # imgLabel = np.array((imgLabel / 255).reshape(-1), np.int8)
 
-        metric.addBatch(imgPredict, imgLabel)
-        pa = metric.pixelAccuracy()
-        cpa = metric.classPixelAccuracy()
-        mpa = metric.meanPixelAccuracy()
-        mIoU = metric.meanIntersectionOverUnion()
-        dice = mc.binary.dc(imgPredict, imgLabel)
+        # metric.addBatch(imgPredict, imgLabel)
+        # pa = metric.pixelAccuracy()
+        # cpa = metric.classPixelAccuracy()
+        # mpa = metric.meanPixelAccuracy()
+        # mIoU = metric.meanIntersectionOverUnion()
+        # dice = mc.binary.dc(imgPredict, imgLabel)
 
         # print('\n\n', '**==**==' * 50)
         # print(f'第{i}张测试图片')
@@ -119,18 +118,22 @@ def five_channel_test(model):
         # print('类别像素准确率 CPA is :', cpa)
         # print('类别平均像素准确率 MPA is : %f' % mpa)
         # print('mIoU is : %f' % mIoU, end='\n\n')
-
+        cur_avg_iou = sum(cur_all_sub_out_iou) / len(cur_all_sub_out_iou)
         save_path = os.path.join(args.img_save_path, 'test_img_' + raw_file)
-        paste_evaluation(save_img, mIoU, save_path)
+        paste_evaluation(save_img, cur_avg_iou, save_path)
         # cv2.imwrite(os.path.join(args.img_save_path, 'test_img_' + raw_file), save_img)
         cv2.imwrite(os.path.join(args.mask_save_path, 'test_mask_' + raw_file.split('.')[0] + '.png'), mask_img_to_save)
         # print(raw_file + '  save res ok')
 
-        m_pa += pa
-        m_cpa += cpa
-        m_mpa += mpa
-        m_mIoU += mIoU
-        m_dice += dice
+        # m_pa += pa
+        # m_cpa += cpa
+        # m_mpa += mpa
+        # m_mIoU += mIoU
+        # m_dice += dice
+
+        # cur_avg_iou = m_mIoU / i
+        print(raw_file, ' ==== cur avg iou: ', cur_avg_iou)
+        m_mIoU += cur_avg_iou
         i += 1
 
     # print('\n\n', '**==**==' * 50)
@@ -147,11 +150,14 @@ def get_best_ep():
     checkpoint_path = args.checkpoint_path
     all_test_res = []
     for param in os.listdir(checkpoint_path):
+        if '220' not in param:
+            continue
         param_path = checkpoint_path + param
         checkpoints = torch.load(param_path)
-        print('load ', param_path)
+        print('load... ', param_path)
         model = liteseg.LiteSeg(num_class=1,
-                                backbone_network='mobilenet',
+                                # backbone_network='mobilenet',
+                                backbone_network=args.backbone,
                                 pretrain_weight=None,
                                 is_train=False)
         model.load_state_dict(checkpoints['model_state_dict'])
@@ -161,6 +167,8 @@ def get_best_ep():
         all_test_res.append([param, cur_avg_miou])
     all_test_res.sort(key=lambda x: x[1], reverse=True)
     print(all_test_res)
+    for r in all_test_res:
+        print(r)
 
 
 if __name__ == '__main__':
@@ -178,4 +186,22 @@ if __name__ == '__main__':
 ['liteseg_zdm_ep400_BCE_640x640_selfResize_best_ep100.pth', 0.5997486310162502]
 ['liteseg_zdm_ep400_BCE_640x640_selfResize_best_ep220.pth', 0.5988662106318707]
 ['liteseg_zdm_ep400_BCE_640x640_selfResize_best_ep240.pth', 0.598625672927424]
+'''
+'''
+main pic:
+shuffle net liteseg:
+ep100 :0.6162654503623831
+ep120 :0.6154555830948208
+ep160 :0.5661063684433846
+ep180 :0.6151603650986458
+ep200 :0.6130643847404087
+ep220 :0.6179767938430025  **
+ep260 :0.6095356555025329
+ep280 :0.616349402714124 *
+ep300 :0.581963395541494
+ep320 :0.6136783326154513
+ep340 :0.610648511100478
+ep360 :0.6056608747303377
+ep380 :0.5963703244164091
+
 '''
