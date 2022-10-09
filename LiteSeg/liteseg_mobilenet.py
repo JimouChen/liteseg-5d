@@ -13,7 +13,7 @@ class RT(nn.Module):
     def __init__(self, n_classes=19, PRETRAINED_WEIGHTS=".", pretrained=True):
 
         super(RT, self).__init__()
-        print("LiteSeg-MobileNet...")
+        print("LiteSeg-ShuffleNet...")
 
         self.mobile_features = MobileNetV2.MobileNetV2()
         if pretrained:

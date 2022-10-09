@@ -388,7 +388,7 @@ def evaluation_model(pred_img, raw_sub_img, args):
     # print('像素准确率 PA is : %f' % pa)
     # print('类别像素准确率 CPA is :', cpa)
     # print('类别平均像素准确率 MPA is : %f' % mpa)
-    print('sub out mIoU is : %.6f' % mIoU, end='\n\n')
+    print('sub out mIoU is : %.6f' % mIoU)
     return mIoU
 
 
@@ -402,6 +402,28 @@ def paste_evaluation(img, m_iou, save_path):
                 fontScale=1.5, color=(255, 255, 255), thickness=3,
                 lineType=None, bottomLeftOrigin=None)
     cv2.imwrite(save_path, img)
+
+
+def build_dataset_path():
+    train_data = r'D:\py_program\testAll\segement\src\dataset_dm_zm/'
+    train_label = r'D:\py_program\testAll\segement\src\data\mask/'
+    train_txt = './data_path_txt/train_path.txt'
+    txt_name = train_txt.split('/')[:-1]
+    txt_root = '/'.join(txt_name)
+    if os.path.exists(txt_root):
+        shutil.rmtree(txt_root)
+        os.makedirs(txt_root)
+    n = len(os.listdir(train_data))
+    with open(train_txt, 'a+', encoding='utf-8') as f:
+        for idx, file in enumerate(os.listdir(train_data)):
+            data_path = os.path.join(train_data, file)
+            label_path = os.path.join(train_label, file.split('.')[0] + '.png')
+            if n == idx + 1:
+                f.write(data_path + ' ' + label_path)
+            else:
+                f.write(data_path + ' ' + label_path + '\n')
+            print(data_path + ' ' + label_path, ' ====== ok')
+    print('built ok')
 
 
 def test_show_diff_pred_raw():
@@ -527,6 +549,7 @@ def draw_mistake(pred_mask_root=r'D:\files\data\save_mask/',
                  test_data_path=r'D:\files\data\test_data/',
                  test_mask_path=r'D:\files\data\test_mask/',
                  json_data_root=r'D:\work\new_data\new_zdm_json\data_zdm_last/'):
+    all_mistake_nums = 0
     for file in os.listdir(test_data_path):
         # if 'V191152019F0PH41J_DM_0_20210604_134223' in file:
         pred_mask_path = os.path.join(pred_mask_root, 'test_mask_' + file.split('.')[0] + '.png')
@@ -585,12 +608,17 @@ def draw_mistake(pred_mask_root=r'D:\files\data\save_mask/',
         mistake_box = final_mistake
         # print(mistake_box)
         has_check_boxes = set(true_mask_boxes) - mistake_box
-        print(file + ': 检测出的个数: ', len(has_check_boxes))
-        print(file + ': 漏检个数： ', len(mistake_box))
+        has_check_nums = len(has_check_boxes)
+        mistake_nums = len(mistake_box)
+        print(file + ': 检测出的个数: ', has_check_nums)
+        print(file + ': 漏检个数： ', mistake_nums)
+        all_mistake_nums += mistake_nums
         # overkill_boxes = check_overkill(pred_mask_boxes, intersection_res)
         # print(file + ': 过杀个数：', len(overkill_boxes))
 
         # draw mistake boxes and has checked boxes in true img
+        # if (mistake_nums > 0 and has_check_nums > 0) and mistake_nums / has_check_nums > 0.5:
+
         true_img = cv2.imread(img_path)
         for box in mistake_box:
             label, point = box[0], box[1]
@@ -616,6 +644,7 @@ def draw_mistake(pred_mask_root=r'D:\files\data\save_mask/',
         plt.title('true img')
         plt.imshow(true_img)
         plt.show()
+    print('avg ', all_mistake_nums / len(os.listdir(test_data_path)))
 
 
 def get_parse():
@@ -628,13 +657,15 @@ def get_parse():
     mask_save_path = r'D:\files\data\save_mask/'
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--epochs', type=int, default=400, help='model training epochs')
+    parser.add_argument('--epochs', type=int, default=320, help='model training epochs')
     parser.add_argument('--weight', type=str,
-                        default='./params/liteseg_shuffleNet_zdm_ep400_BCE_640x640_selfResize_best.pth',
+                        # default='./params/liteseg_shuffleNet_zdm_ep400_BCE_640x640_selfResize_best.pth',
+                        default='./params/liteseg_mobileNet_zdm_ep320_BCE_640x640_selfResize_best.pth',
                         # default='./checkpoint/liteseg_zdm_ep400_BCE_640x640_selfResize_best_ep120.pth',
                         help='weights path')
     parser.add_argument('--weight-last', type=str,
-                        default='./params/liteseg_shuffleNet_zdm_ep400_BCE_640x640_selfResize_last.pth',
+                        # default='./params/liteseg_shuffleNet_zdm_ep400_BCE_640x640_selfResize_last.pth',
+                        default='./params/liteseg_mobileNet_zdm_ep320_BCE_640x640_selfResize_last.pth',
                         help='last epoch weights path')
     parser.add_argument('--train-data', type=str, default=train_data, help='train data path')
     parser.add_argument('--train-label', type=str, default=train_label, help='train label path')
@@ -646,7 +677,7 @@ def get_parse():
     parser.add_argument('--train_loss_curve_save_path', type=str, default='./train_loss_pic/',
                         help='train loss curve save path')
     parser.add_argument('--checkpoint_path', type=str,
-                        default='./checkpoint/liteseg_shuffleNet_zdm_ep400_BCE_640x640_selfResize_best/',
+                        default='./checkpoint/liteseg_mobileNet_zdm_ep320_BCE_640x640_selfResize_best/',
                         help='checkpoint params save path')
     parser.add_argument('--go_on_epoch', type=int, default=100, help='checkpoint params epoch')
     parser.add_argument('--go_on_param', type=str,
@@ -661,7 +692,7 @@ def get_parse():
     parser.add_argument('--threshold', type=float, default=0.5, help='object confidence threshold')
     parser.add_argument('--workers', type=int, default=4, help='maximum number of dataloader workers')
     parser.add_argument('--class_number', type=int, default=2, help='segement label class number')
-    parser.add_argument('--backbone', type=str, default='shufflenet', help='net backbone[mobile net/shuffle net]')
+    parser.add_argument('--backbone', type=str, default='mobilenet', help='net backbone[mobile net/shuffle net]')
 
     opt = parser.parse_args()
     # print(opt)

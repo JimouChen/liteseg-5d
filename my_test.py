@@ -11,7 +11,7 @@ from medpy import metric as mc
 import gc
 
 from LiteSeg import liteseg
-from utils import SegmentationMetric, Tool, split_raw, get_parse, paste_evaluation
+from utils import SegmentationMetric, split_raw, get_parse, paste_evaluation
 
 warnings.filterwarnings('ignore')
 gc.collect()
@@ -19,7 +19,7 @@ torch.cuda.empty_cache()
 args = get_parse()
 
 model = liteseg.LiteSeg(num_class=1,
-                        backbone_network='shufflenet',
+                        backbone_network=args.backbone,
                         # backbone_network='mobilenet',
                         pretrain_weight=None,
                         is_train=False)
@@ -133,9 +133,9 @@ def five_channel_test():
         print('mIoU is : %f' % mIoU, end='\n\n')
 
         save_path = os.path.join(args.img_save_path, 'test_img_' + raw_file)
-        paste_evaluation(save_img, mIoU, save_path)
+        # paste_evaluation(save_img, mIoU, save_path)
         # cv2.imwrite(os.path.join(args.img_save_path, 'test_img_' + raw_file), save_img)
-        cv2.imwrite(os.path.join(args.mask_save_path, 'test_mask_' + raw_file.split('.')[0] + '.png'), mask_img_to_save)
+        # cv2.imwrite(os.path.join(args.mask_save_path, 'test_mask_' + raw_file.split('.')[0] + '.png'), mask_img_to_save)
         print(raw_file + '  save res ok')
 
         m_pa += pa

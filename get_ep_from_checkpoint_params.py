@@ -150,7 +150,7 @@ def get_best_ep():
     checkpoint_path = args.checkpoint_path
     all_test_res = []
     for param in os.listdir(checkpoint_path):
-        if '220' not in param:
+        if '320' not in param:
             continue
         param_path = checkpoint_path + param
         checkpoints = torch.load(param_path)
@@ -204,4 +204,18 @@ ep340 :0.610648511100478
 ep360 :0.6056608747303377
 ep380 :0.5963703244164091
 
+==============================
+
+new miou avg
+['shuffleNet_LiteSeg_ep100.pth', 0.8044663915977597]
+['shuffleNet_LiteSeg_ep120.pth', 0.8031655527817603]
+['shuffleNet_LiteSeg_ep320.pth', 0.7962302747263739]
+['shuffleNet_LiteSeg_ep260.pth', 0.7886579907448213]
+['shuffleNet_LiteSeg_ep340.pth', 0.788201025641974]
+['shuffleNet_LiteSeg_ep220.pth', 0.7855989322789694]
+['shuffleNet_LiteSeg_ep360.pth', 0.7844494165811492]
+['shuffleNet_LiteSeg_ep280.pth', 0.7839344514337258]
+['shuffleNet_LiteSeg_ep380.pth', 0.7522334812689105]
+['shuffleNet_LiteSeg_ep300.pth', 0.6950403242254068]
+['shuffleNet_LiteSeg_ep160.pth', 0.6444681336424019]
 '''

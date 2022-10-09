@@ -29,7 +29,7 @@ train_dataset = MyData(args.train_label, args.train_data, img_size=(640, 640))
 train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.workers)
 # scaler = GradScaler()
 model = liteseg.LiteSeg(num_class=1,
-                        backbone_network='shufflenet',
+                        backbone_network=args.backbone,
                         # backbone_network='mobilenet',
                         pretrain_weight=None,
                         is_train=False).to(device)
@@ -61,9 +61,9 @@ def mkdir_path():
     # f = Path(__file__).resolve()
     # root = f.parents[0]
     if not os.path.exists(args.checkpoint_path + cur_model_name):
-        os.mkdir(args.checkpoint_path + cur_model_name)
+        os.makedirs(args.checkpoint_path + cur_model_name)
     if not os.path.exists(args.train_loss_curve_save_path + cur_model_name):
-        os.mkdir(args.train_loss_curve_save_path + cur_model_name)
+        os.makedirs(args.train_loss_curve_save_path + cur_model_name)
 
 
 def train():
