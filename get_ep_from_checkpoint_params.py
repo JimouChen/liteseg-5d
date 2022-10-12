@@ -150,7 +150,7 @@ def get_best_ep():
     checkpoint_path = args.checkpoint_path
     all_test_res = []
     for param in os.listdir(checkpoint_path):
-        if '320' not in param:
+        if '140' in param:
             continue
         param_path = checkpoint_path + param
         checkpoints = torch.load(param_path)
@@ -171,8 +171,45 @@ def get_best_ep():
         print(r)
 
 
+def mp_crawler():
+    import multiprocessing as mp
+    import time
+    mp.freeze_support()
+    st = time.time()
+    pool = mp.Pool(5)
+
+    checkpoint_path = args.checkpoint_path
+    all_test_res = []
+    for param in os.listdir(checkpoint_path):
+        if 'ep80' not in param:
+            continue
+        param_path = checkpoint_path + param
+        checkpoints = torch.load(param_path)
+        print('load... ', param_path)
+        model = liteseg.LiteSeg(num_class=1,
+                                # backbone_network='mobilenet',
+                                backbone_network=args.backbone,
+                                pretrain_weight=None,
+                                is_train=False)
+        model.load_state_dict(checkpoints['model_state_dict'])
+        rs = pool.apply_async(five_channel_test, args=(model,))
+        cur_avg_miou = rs.get()
+
+        print(f'{param} avg mIOU: {cur_avg_miou}')
+        all_test_res.append([param, cur_avg_miou])
+    pool.close()
+    pool.join()
+    print(time.time() - st)
+
+    all_test_res.sort(key=lambda x: x[1], reverse=True)
+    print(all_test_res)
+    for r in all_test_res:
+        print(r)
+
+
 if __name__ == '__main__':
-    get_best_ep()
+    # get_best_ep()
+    mp_crawler()
 
 '''res
 ['liteseg_zdm_ep400_BCE_640x640_selfResize_best_ep120.pth', 0.6237571775497627]
@@ -218,4 +255,17 @@ new miou avg
 ['shuffleNet_LiteSeg_ep380.pth', 0.7522334812689105]
 ['shuffleNet_LiteSeg_ep300.pth', 0.6950403242254068]
 ['shuffleNet_LiteSeg_ep160.pth', 0.6444681336424019]
+
+
+['mobileNet_LiteSeg_ep80.pth', 0.8319099486743938] **
+mobileNet_LiteSeg_ep160.pth avg mIOU: 0.813375987171015
+mobileNet_LiteSeg_ep140.pth avg mIOU: 0.8091378764337136
+['mobileNet_LiteSeg_ep240.pth', 0.8069404649819393]
+['mobileNet_LiteSeg_ep260.pth', 0.8058883266224309]
+['mobileNet_LiteSeg_ep280.pth', 0.8038449244778239]
+mobileNet_LiteSeg_ep180.pth avg mIOU: 0.7802829693120185
+['mobileNet_LiteSeg_ep320.pth', 0.5647669797488909]
+['mobileNet_LiteSeg_ep60.pth', 0.25715046170852274]
+['mobileNet_LiteSeg_ep220.pth', 0.23043198788250888]
+['mobileNet_LiteSeg_ep300.pth', 0.203723356248539]
 '''

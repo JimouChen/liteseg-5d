@@ -388,7 +388,7 @@ def evaluation_model(pred_img, raw_sub_img, args):
     # print('像素准确率 PA is : %f' % pa)
     # print('类别像素准确率 CPA is :', cpa)
     # print('类别平均像素准确率 MPA is : %f' % mpa)
-    print('sub out mIoU is : %.6f' % mIoU)
+    # print('sub out mIoU is : %.6f' % mIoU)
     return mIoU
 
 
@@ -647,6 +647,22 @@ def draw_mistake(pred_mask_root=r'D:\files\data\save_mask/',
     print('avg ', all_mistake_nums / len(os.listdir(test_data_path)))
 
 
+def save_param_from_checkpoint(check_pth, save_path):
+    from LiteSeg import liteseg
+
+    args = get_parse()
+    checkpoint_path = os.path.join(args.checkpoint_path, check_pth)
+    checkpoint = torch.load(checkpoint_path)
+    model = liteseg.LiteSeg(num_class=1,
+                            # backbone_network='mobilenet',
+                            backbone_network=args.backbone,
+                            pretrain_weight=None,
+                            is_train=False)
+    model.load_state_dict(checkpoint['model_state_dict'])
+    torch.save(model.state_dict(), save_path)
+    print('save ok')
+
+
 def get_parse():
     train_data = r'D:\py_program\testAll\segement\src\data\img/'
     train_label = r'D:\py_program\testAll\segement\src\data\mask/'
@@ -677,7 +693,8 @@ def get_parse():
     parser.add_argument('--train_loss_curve_save_path', type=str, default='./train_loss_pic/',
                         help='train loss curve save path')
     parser.add_argument('--checkpoint_path', type=str,
-                        default='./checkpoint/liteseg_mobileNet_zdm_ep320_BCE_640x640_selfResize_best/',
+                        default='./checkpoint/liteseg_mobileNet_zdm_ep320_BCE_640x640_selfResize_best/liteseg_mobileNet_zdm_ep320_BCE_640x640_selfResize_best/',
+                        # default='./checkpoint/liteseg_shuffleNet_zdm_ep400_BCE_640x640_selfResize_best/',
                         help='checkpoint params save path')
     parser.add_argument('--go_on_epoch', type=int, default=100, help='checkpoint params epoch')
     parser.add_argument('--go_on_param', type=str,

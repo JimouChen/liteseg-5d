@@ -133,9 +133,9 @@ def five_channel_test():
         print('mIoU is : %f' % mIoU, end='\n\n')
 
         save_path = os.path.join(args.img_save_path, 'test_img_' + raw_file)
-        # paste_evaluation(save_img, mIoU, save_path)
+        paste_evaluation(save_img, mIoU, save_path)
         # cv2.imwrite(os.path.join(args.img_save_path, 'test_img_' + raw_file), save_img)
-        # cv2.imwrite(os.path.join(args.mask_save_path, 'test_mask_' + raw_file.split('.')[0] + '.png'), mask_img_to_save)
+        cv2.imwrite(os.path.join(args.mask_save_path, 'test_mask_' + raw_file.split('.')[0] + '.png'), mask_img_to_save)
         print(raw_file + '  save res ok')
 
         m_pa += pa
