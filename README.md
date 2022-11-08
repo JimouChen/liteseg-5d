@@ -1,2 +1,3 @@
 # liteseg-5d
-use LiteSeg model do train and test 5d dataset
+- use LiteSegNet model to train and test 5d dataset
+  - backbone: MobileNet or ShuffleNet
